@@ -1,5 +1,3 @@
-# Определяем LightningModule, в котором описаны прямой проход, метрики train/validation/test и оптимизатор AdamW.
-
 import logging
 import os
 import warnings
@@ -17,7 +15,6 @@ from torch.utils.data import DataLoader
 TensorPair: TypeAlias = tuple[torch.Tensor, torch.Tensor]
 DeviceLikeType: TypeAlias = Union[str, torch.device, int]
 
-# Отключаем ненужное логирование.
 os.environ["LT_CLOUD"] = "0"
 
 warnings.filterwarnings("ignore")
@@ -28,6 +25,8 @@ logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
 
 class CustomModelCheckpoint(ModelCheckpoint):
+    """Checkpoint с возможностью указать кастомные параметры в имени файла."""
+
     def __init__(self, *args, custom_params: dict = None, **kwargs):
         super().__init__(*args, **kwargs)
         # Сохраняем словарь с дополнительными параметрами
@@ -43,7 +42,7 @@ class CustomModelCheckpoint(ModelCheckpoint):
 
 class LitModel(L.LightningModule):
     """
-    Полносвязный классификатор изображений MNIST.
+    Универсальный LightningModule для обучения моделей классификации.
 
     Args:
         model: архитектура сети.
@@ -64,11 +63,10 @@ class LitModel(L.LightningModule):
         # Сохраняем гиперпараметры, чтобы архитектуру можно было восстановить из чекпойнта.
         self.save_hyperparameters(ignore="model")
 
-        # Создаём сеть
+        # Создаём сеть.
         self.network = model(**kwargs)
         self.name = model.__name__.lower()
 
-        # CrossEntropyLoss принимает логиты, поэтому Softmax в network не добавляем.
         self.criterion = nn.CrossEntropyLoss()
 
     def fit(
@@ -79,8 +77,6 @@ class LitModel(L.LightningModule):
         patience: int = 3,
         seed: int = 42,
     ):
-        """Автоматический процесс обучения. Возвращает датафрейм с метриками."""
-
         L.seed_everything(seed, workers=True, verbose=False)
 
         checkpoint = CustomModelCheckpoint(
@@ -115,6 +111,7 @@ class LitModel(L.LightningModule):
 
         best_path = checkpoint.best_model_path
 
+        # Восстанавливаем модель из чекпойнта.
         if best_path:
             best_state = torch.load(
                 best_path, map_location=self.device, weights_only=True
@@ -122,8 +119,8 @@ class LitModel(L.LightningModule):
 
             self.load_state_dict(best_state["state_dict"])
 
+        # Получаем значения метрик.
         metrics_path = Path(csv_logger.log_dir) / "metrics.csv"
-
         metrics_df = pd.read_csv(metrics_path)
 
         return metrics_df
