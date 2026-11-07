@@ -64,7 +64,7 @@ class LitModel(L.LightningModule):
         self.save_hyperparameters(ignore="model")
 
         # Создаём сеть.
-        self.network = model(**kwargs)
+        self.model = model(**kwargs)
         self.name = model.__name__.lower()
 
         self.criterion = nn.CrossEntropyLoss()
@@ -131,7 +131,7 @@ class LitModel(L.LightningModule):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Возвращает логиты модели для входного батча."""
-        return self.network(x)
+        return self.model(x)
 
     def _shared_step(self, batch: TensorPair) -> TensorPair:
         """Выполняет общий прямой проход и вычисляет loss и accuracy."""
