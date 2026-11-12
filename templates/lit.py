@@ -103,6 +103,7 @@ class LitModel(L.LightningModule):
             logger=csv_logger,
             callbacks=[checkpoint, early_stopping],
             enable_progress_bar=True,
+            enable_model_summary=False,
         )
 
         self.trainer.fit(
