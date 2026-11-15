@@ -2,7 +2,7 @@ import logging
 import os
 import warnings
 from pathlib import Path
-from typing import TypeAlias, Union
+from typing import Any, TypeAlias, Union
 
 import lightning as L
 import pandas as pd
@@ -56,6 +56,10 @@ class LitModel(L.LightningModule):
         model: type[nn.Module],
         lr: float = 1e-3,
         weight_decay: float = 1e-4,
+        use_reduce_lr_on_plateau: bool = False,
+        scheduler_patience: int = 3,
+        min_lr: float = 1e-6,
+        factor: float = 0.5,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -208,9 +212,30 @@ class LitModel(L.LightningModule):
             batch_size=batch[1].size(0),
         )
 
-    def configure_optimizers(self) -> torch.optim.Optimizer:
-        return torch.optim.AdamW(
+    def configure_optimizers(self) -> torch.optim.Optimizer | dict[str, Any]:
+        optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay,
         )
+
+        if not self.hparams.use_reduce_lr_on_plateau:
+            return optimizer
+
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=0.5,
+            patience=self.hparams.scheduler_patience,
+            min_lr=self.hparams.min_lr,
+        )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
