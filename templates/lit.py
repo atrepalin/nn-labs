@@ -74,7 +74,7 @@ class LitModel(L.LightningModule):
 
         # Устанавливаем seed, так как инициализация модели несёт случайный характер.
         L.seed_everything(seed, workers=True, verbose=False)
-        # Создаём сеть.
+        # Создаём модель.
         self.model = model(**kwargs)
         self.name = model.__name__.lower()
 
@@ -88,7 +88,12 @@ class LitModel(L.LightningModule):
         patience: int = 3,
     ):
         """Обучение модели на тренировочном датасете."""
+        # Устанавливаем seed для воспроизводимости результатов обучения.
         L.seed_everything(self.hparams.seed, workers=True, verbose=False)
+
+        # Каждый проход по DataLoader меняет состояние генератора, поэтому устанавливаем его вручную.
+        if train_loader.generator is not None:
+            train_loader.generator.manual_seed(self.hparams.seed)
 
         checkpoint = CustomModelCheckpoint(
             dirpath="checkpoints",
