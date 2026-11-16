@@ -48,12 +48,17 @@ class LitModel(L.LightningModule):
         model: архитектура сети.
         lr: learning rate оптимизатора AdamW.
         weight_decay: коэффициент затухания весов в AdamW.
+        use_reduce_lr_on_plateau: использовать планировщик ReduceLROnPlateau.
+        scheduler_patience: количество эпох без улучшения метрики для планировщика.
+        min_lr: минимальное значение learning rate.
+        factor: коэффициент уменьшения learning rate.
         **kwargs: параметры сети.
     """
 
     def __init__(
         self,
         model: type[nn.Module],
+        seed: int | None = None,
         lr: float = 1e-3,
         weight_decay: float = 1e-4,
         use_reduce_lr_on_plateau: bool = False,
@@ -67,6 +72,8 @@ class LitModel(L.LightningModule):
         # Сохраняем гиперпараметры, чтобы архитектуру можно было восстановить из чекпойнта.
         self.save_hyperparameters(ignore="model")
 
+        # Устанавливаем seed, так как инициализация модели несёт случайный характер.
+        L.seed_everything(seed, workers=True, verbose=False)
         # Создаём сеть.
         self.model = model(**kwargs)
         self.name = model.__name__.lower()
@@ -79,9 +86,9 @@ class LitModel(L.LightningModule):
         validation_loader: DataLoader[TensorPair],
         epochs: int = 20,
         patience: int = 3,
-        seed: int = 42,
     ):
-        L.seed_everything(seed, workers=True, verbose=False)
+        """Обучение модели на тренировочном датасете."""
+        L.seed_everything(self.hparams.seed, workers=True, verbose=False)
 
         checkpoint = CustomModelCheckpoint(
             dirpath="checkpoints",
